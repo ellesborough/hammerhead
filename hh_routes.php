@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="https://unpkg.com/tablesaw@3.1.2/dist/tablesaw.css">
 
     <script src="https://unpkg.com/tablesaw@3.1.2/dist/tablesaw.js"></script>
-    <script src="https://unpkg.com/tablesaw@3.1.2/dist/tablesaw-init.js"></script> 
+    <script src="https://unpkg.com/tablesaw@3.1.2/dist/tablesaw-init.js"></script>
 
   </head>
 <body>
@@ -79,9 +79,83 @@ function insert_hh_route($route) {
     if($stmt->execute())  {
       echo "New record created successfully. ID: {$route['id']}<br/>";
     } else {
-      echo "Error: " . $sql . "<br>" . $mysqli->error;
+      echo "Error: " . $sql . "<br>" . $db->errorInfo();
     }
 }
+
+function update_hh_route($route) {
+
+    global $db;
+    global $hh_user_id;
+
+    $sql = <<<EOT
+UPDATE hh_routes
+SET
+    name=:new_name,
+    distance=:distance,
+    elevation_gain=:elevation_gain,
+    created=:created,
+    updated=:updated,
+    summary_polyline=:summary_polyline,
+    route_polyline=NULL,
+    elevation=NULL,
+    tiles=NULL
+WHERE id=:id AND user_id=:user_id
+EOT;
+    #echo $sql;
+
+    $stmt = $db->prepare($sql);
+    if (!$stmt) {
+        die("Can't prepare statement: " . $db->errorInfo());
+    }
+
+    $created_at = rtrim($route['createdAt'],'Z');
+    $updated_at = rtrim($route['updatedAt'],'Z');
+
+    $stmt->bindValue(':id',               $route['id']);
+    $stmt->bindValue(':user_id',          $hh_user_id);
+    $stmt->bindValue(':new_name',         $route['name']);
+    $stmt->bindValue(':distance',         $route['distance']);
+    $stmt->bindValue(':elevation_gain',   $route['gain']);
+    $stmt->bindValue(':created',          $created_at);
+    $stmt->bindValue(':updated',          $updated_at);
+    $stmt->bindValue(':summary_polyline', $route['summaryPolyline']);
+
+    if($stmt->execute())  {
+        echo "Route updated successfully. ID: {$route['id']}<br/>";
+    } else {
+        echo "Error: " . $sql . "<br>" . print_r($stmt->errorInfo());
+    }
+}
+
+
+function update_hh_route_name($route_id, $new_name, $updated) {
+
+    global $db;
+    global $hh_user_id;
+
+    $sql = "UPDATE hh_routes SET name=:new_name, updated=:updated WHERE id=:id AND user_id=:user_id";
+    #echo $sql;
+
+    $stmt = $db->prepare($sql);
+    if(!$stmt) {
+        die("Can't prepare statement: " . $db->errorInfo());
+    }
+
+    $updated_at = rtrim($updated,'Z');
+
+    $stmt->bindValue(':id',       $route_id);
+    $stmt->bindValue(':user_id',  $hh_user_id);
+    $stmt->bindValue(':updated',  $updated_at);
+    $stmt->bindValue(':new_name', $new_name);
+
+    if($stmt->execute())  {
+      echo "Updated route name <br/>";
+     } else {
+      echo "Error: " . $sql . "<br>" . $db->errorInfo();
+    }
+}
+
 
 echo '<header>';
   include 'header.php';
@@ -128,7 +202,7 @@ echo '<H1>' . 'All Hammerhead Routes' . '</H1>';
 
 if($response->getStatusCode() == 200) {
 
-    echo '<table border="1" data-tablesaw-sortable >';  
+    echo '<table border="1" data-tablesaw-sortable >';
         echo '<thead><tr>';
         echo '<th data-tablesaw-sortable-col>' . "Name";
         echo '<th id="date-sort" data-tablesaw-sortable-col>' . "Date";
@@ -146,20 +220,53 @@ if($response->getStatusCode() == 200) {
 
     foreach ($routes['data'] as $idx => $route) {
 
+        if(empty($hh_routes[$route['id']])) {
+
+            insert_hh_route($route);
+        }
+        else {
+
+            $db_route = $hh_routes[$route['id']];
+
+            $api_date_epoch = strtotime($route['updatedAt']);
+            $db_date_epoch = date_create_immutable($db_route['updated'] . "UTC" )->setTimezone(new DateTimeZone("Europe/London"))->format('U');
+
+            if($api_date_epoch != $db_date_epoch ) {
+
+                echo "Local copy of " . $db_route['name'] . " is out of date: "
+                    . $route['updatedAt']
+                    //. " " . $api_date_epoch
+                    . " vs "
+                    .  $hh_routes[$route['id']]['updated']
+                    //. " " . $db_date_epoch
+                    . "<br>";
+
+                if(abs($route['distance'] - $db_route['distance']) > 1.0) {
+                    echo "Route distance is different: " . round($route['distance'] - $db_route['distance'])  ."m" . "<br>";
+                    update_hh_route($route);  // will need a full update
+                }
+                else if ($route['name'] != $db_route['name']) {
+                    echo "Route name is different" . "<br>";
+                    update_hh_route_name($db_route['id'], $route['name'], $route['updatedAt'] );  // just update the name field
+                }
+            }
+        }
+
+
         $created_at = date('j M Y', strtotime($route['createdAt']));
         $updated_at = date('j M Y', strtotime($route['updatedAt']));
 
         echo '<tr>';
 
         echo '<td>' . $route['name'] .  '</td>';
-        
-        echo '<td>' . $created_at 
-                . (($created_at != $updated_at) ? '<br>(updated: ' . $updated_at .  ')' : '') 
+
+        echo '<td>' . $created_at
+                . (($created_at != $updated_at) ? '<br>(updated: ' . $updated_at .  ')' : '')
                 .  '</td>';
 
-        echo '<td>' 
-                . round($route['distance'] / 1000, 1) . ' km' 
-                . "<br>" . "(" . round($route['distance'] / $CONVERT_M_TO_MILES, 1) . ' miles)' 
+        echo '<td>'
+                . round($route['distance'] / 1000, 1) . ' km'
+                . "<br>" . "(" . round($route['distance'] / $CONVERT_M_TO_MILES, 1) . ' miles)'
                 . '</td>';
 
         echo '<td>' . round($route['gain'], 0) . ' m' . '</td>';
@@ -176,17 +283,12 @@ if($response->getStatusCode() == 200) {
 
         echo '<td><div class="map-thumbnail" id="map-'. $route['id'] . '" data-polyline="'. base64_encode($route['summaryPolyline']) . '"></div></td>' . "\n";
 
-        echo '<td>' 
+        echo '<td>'
             . '<a href="hh_route.php?route_id=' . $route['id'] . '">View</a><br><br>'
             . '<a href="https://dashboard.hammerhead.io/routes/' . $route['id'] . '" target=_blank><img src="images/hh_logo.png"  width=40></a>'
             . '</td>';
 
         echo "</tr>\n";
-
-        if(empty($hh_routes[$route['id']])) {
-
-            insert_hh_route($route);
-        }
     }
 
     echo "</table>";

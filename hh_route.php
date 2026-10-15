@@ -112,14 +112,14 @@ function update_hh_route_tiles($route_id, $tiles) {
     global $db;
     global $hh_user_id;
 
-    $sql = "UPDATE hh_routes SET tiles=:elevation WHERE id=:id AND user_id=:user_id";
+    $sql = "UPDATE hh_routes SET tiles=:tiles WHERE id=:id AND user_id=:user_id";
     #echo $sql;
 
     $stmt = $db->prepare($sql);
     if(!$stmt) {
         die("Can't prepare statement: " . $db->errorInfo());
     }
-    $stmt->bindValue(':elevation', $tiles);
+    $stmt->bindValue(':tiles', $tiles);
     $stmt->bindValue(':id', $route_id);
     $stmt->bindValue(':user_id', $hh_user_id);
 
