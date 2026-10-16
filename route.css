@@ -1,0 +1,42 @@
+.map-thumbnail {
+    width: 200px; 
+    height: 200px; 
+}
+
+.map {
+    width: 400px; 
+    height: 400px; 
+}
+
+#altitude_chart {
+    width: 600px; 
+    height: 300px; 
+}
+
+#route_activity_chart {
+    width: 600px; 
+    height: 400px; 
+}
+
+.apexcharts-tooltip {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size:12px;
+}
+
+.my-tooltip {    
+    border-radius: 5px;
+    border: 1px solid #e3e3e3;    
+}
+
+.my-tooltip-header {    
+    padding: 6px;
+    background-color: lightgrey;
+}
+
+.my-tooltip-body {    
+    padding: 6px;    
+}
+
+.weather-icon-wind {
+    font-size:28px;
+}
