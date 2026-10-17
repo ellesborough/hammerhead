@@ -89,6 +89,10 @@ function update_hh_ride_polyline($ride_id, $polyline) {
     return update_hh_ride_field($ride_id, "polyline", $polyline);
 }
 
+function update_hh_ride_summary_polyline($ride_id, $summary_polyline) {
+    return update_hh_ride_field($ride_id, "summary_polyline", $summary_polyline);
+}
+
 function update_hh_ride_tiles($ride_id, $tiles) {
     return update_hh_ride_field($ride_id, "tiles", $tiles);
 }
@@ -194,6 +198,30 @@ if($result) {
             $start_longitude = $ride_points[0]['y'];
 
             fetchWeather($db, $ride_id, $hh_user_id, $ride['start_time'], $start_latitude, $start_longitude);
+        }
+
+        if(empty($ride['summary_polyline']) && !empty($ride['polyline']) ) {
+
+            $ride_points = PolylineEncoder::decodeValue($ride['polyline']);
+
+            echo "Original points: " . count($ride_points) . "<br>";
+
+            $tolerance = 0.0001;
+
+            $simplify_points = simplify($ride_points, $tolerance, true);
+
+            echo "Simplified points: " . count($simplify_points) . "<br>";
+
+            $polyline_encoder = new PolylineEncoder();
+
+            foreach ($simplify_points as $point) {
+                $polyline_encoder->addPoint($point['x'], $point['y']);
+            }
+
+            $summary_polyline = $polyline_encoder->encodedString();
+            //echo $summary_polyline . "<br>";
+
+            update_hh_ride_summary_polyline($ride_id, $summary_polyline);
         }
     }
 

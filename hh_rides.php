@@ -345,7 +345,7 @@ try {
 // Now get required details of all HH rides in the DB, don't fetch record_data which is large and not used here
 $sql = <<<EOT
 SELECT user_id, id, created, strava_activity_id, name, start_time, elapsed_time, active_time, distance,
-            elevation_gain, average_temperature, average_speed, max_speed, tiles, weather, polyline
+            elevation_gain, average_temperature, average_speed, max_speed, tiles, weather, polyline, summary_polyline
 FROM hh_rides
 WHERE user_id = :user_id
 ORDER BY start_time DESC
@@ -443,8 +443,11 @@ if($result) {
         $row[9] = (!empty($ride['tiles']) ? count(explode(',', $ride['tiles'])) : "");
 
         // Map
-        if(!empty($ride['polyline'])) {
-            $row[10] = '<div class="map-thumbnail" id="map-'. $ride['id'] . '" data-polyline="'. base64_encode($ride['polyline']) . '"></div>';
+        if(!empty($ride['polyline']) || !empty($ride['summary_polyline'])) {
+
+            $polyline = $ride['summary_polyline'] ?? $ride['polyline'];
+
+            $row[10] = '<div class="map-thumbnail" id="map-'. $ride['id'] . '" data-polyline="'. base64_encode($polyline) . '"></div>';
         }
         else {
             $row[10] = "";
